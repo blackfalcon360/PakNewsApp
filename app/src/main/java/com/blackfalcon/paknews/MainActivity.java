@@ -569,7 +569,7 @@ public class MainActivity extends Activity {
             on[i] = enabled.contains(c.id);
         }
         AlertDialog d = new AlertDialog.Builder(this)
-                .setTitle(t("Choose channels (Long press custom link to delete)", "چینلز منتخب کریں (ڈیلیٹ کرنے کے لیے لنک دبا کر رکھیں)"))
+                .setTitle(t("Choose channels", "چینلز منتخب کریں"))
                 .setMultiChoiceItems(names, on, (dlg, which, checked) -> on[which] = checked)
                 .setPositiveButton(t("Save", "محفوظ کریں"), (dlg, w) -> {
                     enabled.clear();
@@ -583,43 +583,8 @@ public class MainActivity extends Activity {
                 .setNeutralButton(t("＋ Add RSS link", "＋ آر ایس ایس لنک"), (dlg, w) -> addLinkDialog())
                 .setNegativeButton(t("Cancel", "منسوخ"), null)
                 .create();
-        
         d.show();
         d.getListView().setLayoutDirection(urdu ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
-
-        // Custom link ko long press karke delete karne ka function
-        d.getListView().setOnItemLongClickListener((parent, view, position, id) -> {
-            Channel target = all.get(position);
-            if (target.id.startsWith("custom")) {
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle(t("Delete Link", "لنک ڈیلیٹ کریں"))
-                        .setMessage(t("Do you want to delete " + target.nameEn + "?", "کیا آپ " + target.nameUr + " کو ڈیلیٹ کرنا چاہتے ہیں؟"))
-                        .setPositiveButton(t("Delete", "ڈیلیٹ"), (dialog, which) -> {
-                            deleteCustomChannel(target);
-                            d.dismiss();
-                            channelsDialog(); // Refresh channels list
-                        })
-                        .setNegativeButton(t("Cancel", "منسوخ"), null)
-                        .show();
-                return true;
-            }
-            return false;
-        });
-    }
-
-    private void deleteCustomChannel(Channel target) {
-        customs.remove(target);
-        customUrl.remove(target.id);
-        enabled.remove(target.id);
-        data.remove(target.id);
-        
-        saveCustoms();
-        saveEnabled();
-        
-        if (filter.equals(target.id)) filter = "all";
-        rebuildChips();
-        rebuildList();
-        Toast.makeText(this, t("Link deleted", "لنک ڈیلیٹ ہو گیا"), Toast.LENGTH_SHORT).show();
     }
 
     private void addLinkDialog() {
@@ -659,9 +624,17 @@ public class MainActivity extends Activity {
                     rebuildChips();
                     refresh();
                 })
-                .setNeutralButton(t("Manage/Delete links", "لنکس مینیج / ڈیلیٹ کریں"), (dlg, w) -> manageCustomLinksDialog())
+                .setNeutralButton(t("Remove my links", "میرے لنک ہٹائیں"), (dlg, w) -> {
+                    for (Channel c : customs) { enabled.remove(c.id); data.remove(c.id); }
+                    customs.clear();
+                    customUrl.clear();
+                    saveCustoms();
+                    saveEnabled();
+                    filter = "all";
+                    rebuildChips();
+                    rebuildList();
+                })
                 .setNegativeButton(t("Cancel", "منسوخ"), null)
                 .show();
     }
-
-    private void manageCustomLinksDialog() {
+}
