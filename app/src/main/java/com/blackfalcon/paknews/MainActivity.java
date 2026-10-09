@@ -43,7 +43,11 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
 
-    private static final int GREEN = 0xFF2ECC71, GRAY = 0xFF9E9E9E, CARD = 0xFF121212, EDGE = 0xFF2A2A2A;
+    private static final int GREEN = 0xFF2ECC71, GRAY = 0xFF9E9E9E;
+
+    // Theme Colors Variables
+    private boolean isDarkMode = true;
+    private int bgColor, cardColor, edgeColor, textColor, topBarColor;
 
     private SharedPreferences sp;
     private boolean urdu = false;
@@ -59,7 +63,7 @@ public class MainActivity extends Activity {
     private final ExecutorService pool = Executors.newFixedThreadPool(6);
     private final Handler handler = new Handler(Looper.getMainLooper());
 
-    private LinearLayout root, chipRow;
+    private LinearLayout root, chipRow, topBarLayout;
     private TextView titleTv, statusTv, langBtn;
     private EditText search;
     private ListView list;
@@ -78,6 +82,9 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         sp = getSharedPreferences("news", MODE_PRIVATE);
         urdu = sp.getBoolean("urdu", false);
+        isDarkMode = sp.getBoolean("isDarkMode", true);
+        
+        setupThemeColors();
         loadCustoms();
         loadEnabled();
         for (Channel c : channels()) loadCache(c.id);
@@ -89,6 +96,33 @@ public class MainActivity extends Activity {
     @Override protected void onResume() { super.onResume(); handler.post(autoRefresh); }
     @Override protected void onPause() { super.onPause(); handler.removeCallbacks(autoRefresh); }
     @Override protected void onDestroy() { super.onDestroy(); pool.shutdownNow(); }
+
+    private void setupThemeColors() {
+        if (isDarkMode) {
+            bgColor = Color.BLACK;
+            cardColor = 0xFF121212;
+            edgeColor = 0xFF2A2A2A;
+            textColor = Color.WHITE;
+            topBarColor = 0xFF0B0B0B;
+        } else {
+            bgColor = 0xFFF0F2F5;
+            cardColor = 0xFFFFFFFF;
+            edgeColor = 0xFFDDDDDD;
+            textColor = Color.BLACK;
+            topBarColor = 0xFFE8E8E8;
+        }
+    }
+
+    private void applyTheme() {
+        setupThemeColors();
+        root.setBackgroundColor(bgColor);
+        topBarLayout.setBackgroundColor(topBarColor);
+        titleTv.setTextColor(textColor);
+        search.setTextColor(textColor);
+        search.setBackground(round(cardColor, edgeColor, 20));
+        rebuildChips();
+        rebuildList();
+    }
 
     // ------------------------------------------------------------- channels
     private List<Channel> channels() {
@@ -231,18 +265,18 @@ public class MainActivity extends Activity {
     private void buildUi() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.BLACK);
+        root.setBackgroundColor(bgColor);
 
-        LinearLayout bar = new LinearLayout(this);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setBackgroundColor(0xFF0B0B0B);
-        bar.setPadding(dp(14), dp(8), dp(6), dp(8));
-        titleTv = tv(21, Color.WHITE, true);
+        topBarLayout = new LinearLayout(this);
+        topBarLayout.setGravity(Gravity.CENTER_VERTICAL);
+        topBarLayout.setBackgroundColor(topBarColor);
+        topBarLayout.setPadding(dp(14), dp(8), dp(6), dp(8));
+        titleTv = tv(21, textColor, true);
         titleTv.setSingleLine(true);
         TextView refresh = iconBtn("\u21BB");
         refresh.setOnClickListener(v -> refresh());
         TextView gear = iconBtn("\u2699");
-        gear.setOnClickListener(v -> channelsDialog());
+        gear.setOnClickListener(v -> settingsDialog());
         langBtn = tv(13, Color.BLACK, true);
         langBtn.setGravity(Gravity.CENTER);
         langBtn.setPadding(dp(12), dp(7), dp(12), dp(7));
@@ -253,10 +287,10 @@ public class MainActivity extends Activity {
             sp.edit().putBoolean("urdu", urdu).apply();
             applyLanguage();
         });
-        bar.addView(titleTv, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        bar.addView(refresh);
-        bar.addView(gear);
-        bar.addView(langBtn);
+        topBarLayout.addView(titleTv, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        topBarLayout.addView(refresh);
+        topBarLayout.addView(gear);
+        topBarLayout.addView(langBtn);
 
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
@@ -265,12 +299,12 @@ public class MainActivity extends Activity {
         hs.addView(chipRow);
 
         search = new EditText(this);
-        search.setTextColor(Color.WHITE);
+        search.setTextColor(textColor);
         search.setHintTextColor(0xFF707070);
         search.setTextSize(15);
         search.setSingleLine(true);
         search.setPadding(dp(14), dp(8), dp(14), dp(8));
-        search.setBackground(round(CARD, EDGE, 20));
+        search.setBackground(round(cardColor, edgeColor, 20));
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
@@ -292,13 +326,13 @@ public class MainActivity extends Activity {
         list.setOnItemClickListener((p, v, pos, id) -> open(visible.get(pos)));
         list.setOnItemLongClickListener((p, v, pos, id) -> { share(visible.get(pos)); return true; });
 
-        TextView credit = tv(12, Color.WHITE, true);
+        TextView credit = tv(12, textColor, true);
         credit.setText("By: Black Falcon \uD83E\uDD85");
         credit.setGravity(Gravity.RIGHT);
         credit.setPadding(dp(14), dp(4), dp(14), dp(6));
         credit.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
-        root.addView(bar);
+        root.addView(topBarLayout);
         root.addView(hs);
         root.addView(search, sl);
         root.addView(statusTv);
@@ -333,7 +367,7 @@ public class MainActivity extends Activity {
         b.setText(label);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(14), dp(8), dp(14), dp(8));
-        b.setBackground(round(on ? color : 0xFF101010, color, 18));
+        b.setBackground(round(on ? color : (isDarkMode ? 0xFF101010 : 0xFFE0E0E0), color, 18));
         b.setClickable(true);
         b.setOnClickListener(v -> { filter = id; rebuildChips(); rebuildList(); list.setSelection(0); });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -395,7 +429,7 @@ public class MainActivity extends Activity {
             if (convert == null) {
                 card = new LinearLayout(MainActivity.this);
                 card.setOrientation(LinearLayout.HORIZONTAL);
-                card.setBackground(round(CARD, EDGE, 14));
+                card.setBackground(round(cardColor, edgeColor, 14));
                 strip = new View(MainActivity.this);
                 LinearLayout col = new LinearLayout(MainActivity.this);
                 col.setOrientation(LinearLayout.VERTICAL);
@@ -406,7 +440,7 @@ public class MainActivity extends Activity {
                 time.setPadding(dp(8), 0, dp(8), 0);
                 top.addView(name);
                 top.addView(time);
-                title = tv(16, Color.WHITE, false);
+                title = tv(16, textColor, false);
                 title.setLineSpacing(0, 1.12f);
                 title.setPadding(0, dp(4), 0, 0);
                 title.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
@@ -423,8 +457,11 @@ public class MainActivity extends Activity {
                 convert = wrap;
             }
             card = (LinearLayout) convert.getTag();
+            card.setBackground(round(cardColor, edgeColor, 14));
             View[] v = (View[]) card.getTag();
             strip = v[0]; name = (TextView) v[1]; time = (TextView) v[2]; title = (TextView) v[3];
+            title.setTextColor(textColor);
+
             Feeds.Item it = visible.get(pos);
             Channel ch = Channel.byId(it.channelId);
             if (ch == null) for (Channel c : customs) if (c.id.equals(it.channelId)) ch = c;
@@ -440,18 +477,18 @@ public class MainActivity extends Activity {
         }
     }
 
+    // In-App Browser Dialog
     private void open(Feeds.Item it) {
         try {
-            Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+            Dialog dialog = new Dialog(this, isDarkMode ? android.R.style.Theme_Black_NoTitleBar_Fullscreen : android.R.style.Theme_Light_NoTitleBar_Fullscreen);
             
             LinearLayout layout = new LinearLayout(this);
             layout.setOrientation(LinearLayout.VERTICAL);
-            layout.setBackgroundColor(CARD);
+            layout.setBackgroundColor(cardColor);
 
-            // Top Bar
             LinearLayout topBar = new LinearLayout(this);
             topBar.setPadding(dp(16), dp(10), dp(16), dp(10));
-            topBar.setBackgroundColor(0xFF0B0B0B);
+            topBar.setBackgroundColor(topBarColor);
             topBar.setGravity(Gravity.RIGHT);
 
             TextView closeBtn = tv(14, Color.RED, true);
@@ -461,7 +498,6 @@ public class MainActivity extends Activity {
 
             topBar.addView(closeBtn);
 
-            // WebView (In-App Browser)
             WebView webView = new WebView(this);
             webView.getSettings().setJavaScriptEnabled(true);
             webView.setWebViewClient(new WebViewClient());
@@ -485,7 +521,44 @@ public class MainActivity extends Activity {
         startActivity(Intent.createChooser(i, null));
     }
 
-    // -------------------------------------------------------------- channels
+    // -------------------------------------------------------------- Settings & Channels Dialog
+    private void settingsDialog() {
+        String[] mainOptions = new String[]{
+                t("🎨 App Theme", "🎨 ایپ تھیم"),
+                t("📡 Select Channels", "📡 چینلز منتخب کریں")
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(t("Settings", "سیٹنگز"))
+                .setItems(mainOptions, (dlg, which) -> {
+                    if (which == 0) {
+                        themeChoiceDialog();
+                    } else {
+                        channelsDialog();
+                    }
+                })
+                .setNegativeButton(t("Cancel", "منسوخ"), null)
+                .show();
+    }
+
+    private void themeChoiceDialog() {
+        String[] themes = new String[]{
+                t("🌙 Dark Mode", "🌙 ڈارک موڈ"),
+                t("☀️ Light Mode", "☀️ لائٹ موڈ")
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(t("Choose Theme", "تھیم منتخب کریں"))
+                .setSingleChoiceItems(themes, isDarkMode ? 0 : 1, (dlg, which) -> {
+                    isDarkMode = (which == 0);
+                    sp.edit().putBoolean("isDarkMode", isDarkMode).apply();
+                    applyTheme();
+                    dlg.dismiss();
+                })
+                .setNegativeButton(t("Cancel", "منسوخ"), null)
+                .show();
+    }
+
     private void channelsDialog() {
         final List<Channel> all = channels();
         String[] names = new String[all.size()];
@@ -524,8 +597,8 @@ public class MainActivity extends Activity {
         url.setHint("https://…/feed");
         url.setSingleLine(true);
         name.setSingleLine(true);
-        name.setTextColor(Color.WHITE);
-        url.setTextColor(Color.WHITE);
+        name.setTextColor(textColor);
+        url.setTextColor(textColor);
         f.addView(name);
         f.addView(url);
         TextView hint = tv(12, GRAY, false);
