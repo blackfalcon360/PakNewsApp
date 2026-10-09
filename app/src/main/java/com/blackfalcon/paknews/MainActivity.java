@@ -97,6 +97,19 @@ public class MainActivity extends Activity {
     @Override protected void onPause() { super.onPause(); handler.removeCallbacks(autoRefresh); }
     @Override protected void onDestroy() { super.onDestroy(); pool.shutdownNow(); }
 
+    @Override
+    public void onBackPressed() {
+        new AlertDialog.Builder(this)
+                .setTitle(t("Exit App", "ایپ سے باہر نکلیں"))
+                .setMessage(t("Are you sure you want to exit?", "کیا آپ واقعی ایپ بند کرنا چاہتے ہیں؟"))
+                .setPositiveButton(t("Yes", "جی ہاں"), (dialog, which) -> {
+                    super.onBackPressed();
+                    finish();
+                })
+                .setNegativeButton(t("No", "نہیں"), null)
+                .show();
+    }
+
     private void setupThemeColors() {
         if (isDarkMode) {
             bgColor = Color.BLACK;
