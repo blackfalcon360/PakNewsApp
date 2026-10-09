@@ -399,4 +399,169 @@ public class MainActivity extends Activity {
                 strip = new View(MainActivity.this);
                 LinearLayout col = new LinearLayout(MainActivity.this);
                 col.setOrientation(LinearLayout.VERTICAL);
-                col.setPadding(
+                col.setPadding(dp(12), dp(10), dp(12), dp(10));
+                LinearLayout top = new LinearLayout(MainActivity.this);
+                name = tv(12, GREEN, true);
+                time = tv(11, GRAY, false);
+                time.setPadding(dp(8), 0, dp(8), 0);
+                top.addView(name);
+                top.addView(time);
+                title = tv(16, Color.WHITE, false);
+                title.setLineSpacing(0, 1.12f);
+                title.setPadding(0, dp(4), 0, 0);
+                title.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+                col.addView(top);
+                col.addView(title);
+                card.addView(strip, new LinearLayout.LayoutParams(dp(5), LinearLayout.LayoutParams.MATCH_PARENT));
+                card.addView(col, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                card.setTag(new View[]{strip, name, time, title});
+                
+                LinearLayout wrap = new LinearLayout(MainActivity.this);
+                wrap.setPadding(0, dp(4), 0, dp(4));
+                wrap.addView(card, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+                wrap.setTag(card);
+                convert = wrap;
+            }
+            card = (LinearLayout) convert.getTag();
+            View[] v = (View[]) card.getTag();
+            strip = v[0]; name = (TextView) v[1]; time = (TextView) v[2]; title = (TextView) v[3];
+            Feeds.Item it = visible.get(pos);
+            Channel ch = Channel.byId(it.channelId);
+            if (ch == null) for (Channel c : customs) if (c.id.equals(it.channelId)) ch = c;
+            int color = ch == null ? GREEN : ch.color;
+            strip.setBackgroundColor(color);
+            name.setTextColor(color);
+            name.setText(ch == null ? "" : nameOf(ch));
+            long now = System.currentTimeMillis();
+            boolean fresh = now - it.ts < 30 * 60000L;
+            time.setText("\u2022 " + Dates.ago(it.ts, now, urdu ? 1 : 0) + (fresh ? "  \uD83D\uDD34 " + t("NEW", "تازہ") : ""));
+            title.setText(it.title);
+            return convert;
+        }
+    }
+
+    private void open(Feeds.Item it) {
+        try {
+            Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+            
+            LinearLayout layout = new LinearLayout(this);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setBackgroundColor(CARD);
+
+            // Top Bar
+            LinearLayout topBar = new LinearLayout(this);
+            topBar.setPadding(dp(16), dp(10), dp(16), dp(10));
+            topBar.setBackgroundColor(0xFF0B0B0B);
+            topBar.setGravity(Gravity.RIGHT);
+
+            TextView closeBtn = tv(14, Color.RED, true);
+            closeBtn.setText("❌ " + t("Close", "بند کریں"));
+            closeBtn.setPadding(dp(8), dp(4), dp(8), dp(4));
+            closeBtn.setOnClickListener(v -> dialog.dismiss());
+
+            topBar.addView(closeBtn);
+
+            // WebView (In-App Browser)
+            WebView webView = new WebView(this);
+            webView.getSettings().setJavaScriptEnabled(true);
+            webView.setWebViewClient(new WebViewClient());
+            webView.loadUrl(it.link);
+
+            layout.addView(topBar);
+            layout.addView(webView, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+            dialog.setContentView(layout);
+            dialog.show();
+        } catch (Exception e) {
+            Toast.makeText(this, t("Could not open the link", "لنک نہیں کھل سکا"), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void share(Feeds.Item it) {
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("text/plain");
+        i.putExtra(Intent.EXTRA_TEXT, it.title + "\n" + it.link);
+        startActivity(Intent.createChooser(i, null));
+    }
+
+    // -------------------------------------------------------------- channels
+    private void channelsDialog() {
+        final List<Channel> all = channels();
+        String[] names = new String[all.size()];
+        final boolean[] on = new boolean[all.size()];
+        for (int i = 0; i < names.length; i++) {
+            Channel c = all.get(i);
+            names[i] = nameOf(c) + (c.id.startsWith("custom") ? t("  (my link)", "  (میرا لنک)") : (c.urdu ? t("  (Urdu)", "  (اردو)") : ""));
+            on[i] = enabled.contains(c.id);
+        }
+        AlertDialog d = new AlertDialog.Builder(this)
+                .setTitle(t("Choose channels", "چینلز منتخب کریں"))
+                .setMultiChoiceItems(names, on, (dlg, which, checked) -> on[which] = checked)
+                .setPositiveButton(t("Save", "محفوظ کریں"), (dlg, w) -> {
+                    enabled.clear();
+                    for (int i = 0; i < on.length; i++) if (on[i]) enabled.add(all.get(i).id);
+                    saveEnabled();
+                    if (!filter.equals("all") && !enabled.contains(filter)) filter = "all";
+                    rebuildChips();
+                    rebuildList();
+                    refresh();
+                })
+                .setNeutralButton(t("＋ Add RSS link", "＋ آر ایس ایس لنک"), (dlg, w) -> addLinkDialog())
+                .setNegativeButton(t("Cancel", "منسوخ"), null)
+                .create();
+        d.show();
+        d.getListView().setLayoutDirection(urdu ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+    }
+
+    private void addLinkDialog() {
+        LinearLayout f = new LinearLayout(this);
+        f.setOrientation(LinearLayout.VERTICAL);
+        f.setPadding(dp(20), dp(8), dp(20), 0);
+        final EditText name = new EditText(this);
+        name.setHint(t("Channel name", "چینل کا نام"));
+        final EditText url = new EditText(this);
+        url.setHint("https://…/feed");
+        url.setSingleLine(true);
+        name.setSingleLine(true);
+        name.setTextColor(Color.WHITE);
+        url.setTextColor(Color.WHITE);
+        f.addView(name);
+        f.addView(url);
+        TextView hint = tv(12, GRAY, false);
+        hint.setText(t("Paste the RSS/feed address of any news site.", "کسی بھی نیوز سائٹ کا آر ایس ایس (feed) ایڈریس پیسٹ کریں۔"));
+        hint.setPadding(0, dp(8), 0, 0);
+        f.addView(hint);
+        new AlertDialog.Builder(this)
+                .setTitle(t("Add my own link", "اپنا لنک شامل کریں"))
+                .setView(f)
+                .setPositiveButton(t("Add", "شامل کریں"), (dlg, w) -> {
+                    String n = name.getText().toString().trim();
+                    String u = url.getText().toString().trim();
+                    if (n.isEmpty() || !u.startsWith("http")) {
+                        Toast.makeText(this, t("Enter a name and a link starting with http", "نام اور http سے شروع ہونے والا لنک لکھیں"), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    String id = "custom" + System.currentTimeMillis();
+                    customs.add(new Channel(id, n, n, 0xFF90CAF9, false, true, u));
+                    customUrl.put(id, u);
+                    enabled.add(id);
+                    saveCustoms();
+                    saveEnabled();
+                    rebuildChips();
+                    refresh();
+                })
+                .setNeutralButton(t("Remove my links", "میرے لنک ہٹائیں"), (dlg, w) -> {
+                    for (Channel c : customs) { enabled.remove(c.id); data.remove(c.id); }
+                    customs.clear();
+                    customUrl.clear();
+                    saveCustoms();
+                    saveEnabled();
+                    filter = "all";
+                    rebuildChips();
+                    rebuildList();
+                })
+                .setNegativeButton(t("Cancel", "منسوخ"), null)
+                .show();
+    }
+}
